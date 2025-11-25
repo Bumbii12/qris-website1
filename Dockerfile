@@ -1,25 +1,19 @@
-# ========= STAGE 1: Build asset frontend (Vite) =========
+# ========== STAGE 1: FRONTEND (Vite build) ==========
 FROM node:20-alpine AS frontend
 
 WORKDIR /app
 
-# Copy file package*
 COPY package*.json ./
-
-# Install dependency frontend
 RUN npm install
 
-# Copy semua source (buat akses resources/js, css, dll)
 COPY . .
-
-# Build asset Vite
 RUN npm run build
 
 
-# ========= STAGE 2: PHP + Laravel app =========
-FROM php:8.2-cli-alpine
+# ========== STAGE 2: PHP + LARAVEL ==========
+FROM php:8.2-cli-alpine AS app
 
-# Install ekstensi & tools dasar
+# Dependensi OS
 RUN apk add --no-cache \
     git \
     unzip \
@@ -27,49 +21,33 @@ RUN apk add --no-cache \
     libzip-dev \
     sqlite \
     oniguruma-dev \
-    bash
+    bash \
+ && docker-php-ext-install pdo pdo_mysql mbstring zip gd
 
-# Ekstensi PHP yang dibutuhkan Laravel
-RUN docker-php-ext-install pdo pdo_mysql mbstring zip gd
-
-# Install Composer
+# Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
-# Copy file composer dulu (biar cache dependency kepakai)
-COPY composer.json composer.lock ./
+# Penting: copy semua dulu supaya artisan ada
+COPY . .
 
-# Install dependency PHP (tanpa dev, untuk production)
+# Install dependency PHP
 RUN composer install \
     --no-dev \
     --no-interaction \
     --prefer-dist \
     --optimize-autoloader
 
-# Copy source code Laravel
-COPY . .
-
-# Copy asset build dari stage node ke public/build
+# Copy hasil build Vite dari stage frontend
 COPY --from=frontend /app/public/build ./public/build
 
-# Buat direktori storage dan berikan permission
-RUN mkdir -p storage bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache
+# (opsional) optimasi Laravel
+# RUN php artisan config:cache \
+#     && php artisan route:cache \
+#     && php artisan view:cache
 
-# --- Kalau pakai SQLite, UNCOMMENT baris ini ---
-# Buat file database SQLite kosong
-RUN mkdir -p database && touch database/database.sqlite
-
-# Laravel optimize (boleh, tapi optional)
-RUN php artisan config:clear \
-    && php artisan route:clear
-
-# Expose port yang akan dipakai php artisan serve
+# Port default Railway (sesuaikan kalau beda)
 EXPOSE 8000
 
-# Command saat container start:
-# 1. Jalankan migrate (idempotent, aman dijalankan berulang)
-# 2. Jalankan server Laravel
-CMD php artisan migrate --force && \
-    php artisan serve --host=0.0.0.0 --port=8000
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
