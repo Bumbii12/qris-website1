@@ -7,7 +7,7 @@
     <title>@yield('title', 'QRIS Journey Game')</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
-    <link rel="stylesheet" href="{{ asset('qris-template/templatemo-chain-summit.css') }}">
+    <link rel="stylesheet" href="/qris-template/templatemo-chain-summit.css">
 
     <style>
         .wallet-badge {
@@ -131,7 +131,7 @@
         </div>
     </footer>
 
-    <script src="{{ asset('qris-template/templatemo-chain-scripts.js') }}"></script>
+    <script src="qris-template/templatemo-chain-scripts.js"></script>
     @stack('scripts')
 </body>
 
