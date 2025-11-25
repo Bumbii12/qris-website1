@@ -1,58 +1,75 @@
-# =========================
-# STAGE 1 – BUILD FRONTEND
-# =========================
+# ========= STAGE 1: Build asset frontend (Vite) =========
 FROM node:20-alpine AS frontend
 
 WORKDIR /app
 
-# copy file yang dibutuhkan untuk npm install
-COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* ./
-RUN \
-  if [ -f package-lock.json ]; then npm ci; \
-  elif [ -f yarn.lock ]; then yarn install --frozen-lockfile; \
-  else npm install; \
-  fi
+# Copy file package*
+COPY package*.json ./
 
-# copy source yang perlu untuk build Vite
-COPY vite.config.* postcss.config.* tailwind.config.* . 2>/dev/null || true
-COPY resources ./resources
-COPY public ./public
+# Install dependency frontend
+RUN npm install
 
-# build assets Vite -> public/build
+# Copy semua source (buat akses resources/js, css, dll)
+COPY . .
+
+# Build asset Vite
 RUN npm run build
 
 
-# =========================
-# STAGE 2 – PHP + LARAVEL
-# =========================
+# ========= STAGE 2: PHP + Laravel app =========
 FROM php:8.2-cli-alpine
 
-# deps sistem & ekstensi PHP
+# Install ekstensi & tools dasar
 RUN apk add --no-cache \
-      bash git curl libpng-dev oniguruma-dev libxml2-dev zip unzip \
-      icu-dev libzip-dev mariadb-connector-c-dev \
-    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath intl zip
+    git \
+    unzip \
+    libpng-dev \
+    libzip-dev \
+    sqlite \
+    oniguruma-dev \
+    bash
 
-# composer
+# Ekstensi PHP yang dibutuhkan Laravel
+RUN docker-php-ext-install pdo pdo_mysql pdo_sqlite mbstring zip gd
+
+# Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
-# copy semua source Laravel
+# Copy file composer dulu (biar cache dependency kepakai)
+COPY composer.json composer.lock ./
+
+# Install dependency PHP (tanpa dev, untuk production)
+RUN composer install \
+    --no-dev \
+    --no-interaction \
+    --prefer-dist \
+    --optimize-autoloader
+
+# Copy source code Laravel
 COPY . .
 
-# copy hasil build Vite dari stage 1
+# Copy asset build dari stage node ke public/build
 COPY --from=frontend /app/public/build ./public/build
 
-# install dependency PHP (tanpa dev)
-RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+# Buat direktori storage dan berikan permission
+RUN mkdir -p storage bootstrap/cache \
+    && chmod -R 775 storage bootstrap/cache
 
-# permission storage & cache (kalau mau pakai www-data bisa diganti)
-RUN mkdir -p storage framework/cache bootstrap/cache \
-  && chown -R www-data:www-data storage bootstrap/cache
+# --- Kalau pakai SQLite, UNCOMMENT baris ini ---
+# Buat file database SQLite kosong
+RUN mkdir -p database && touch database/database.sqlite
 
-# PORT yang dipakai php artisan serve
+# Laravel optimize (boleh, tapi optional)
+RUN php artisan config:clear \
+    && php artisan route:clear
+
+# Expose port yang akan dipakai php artisan serve
 EXPOSE 8000
 
-# Jalankan Laravel dev server (cukup buat hobby deployment)
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+# Command saat container start:
+# 1. Jalankan migrate (idempotent, aman dijalankan berulang)
+# 2. Jalankan server Laravel
+CMD php artisan migrate --force && \
+    php artisan serve --host=0.0.0.0 --port=8000
