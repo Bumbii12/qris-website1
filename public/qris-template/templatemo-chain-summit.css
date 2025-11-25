@@ -2311,8 +2311,8 @@ footer p a:hover {
 /* urutan langkah */
 .level-order-field {
     display: flex;
-    align-items: center;
-    gap: 0.6rem;
+    align-items: left;
+    gap: 0.75rem;
     text-align: left;
 }
 
@@ -2330,5 +2330,118 @@ footer p a:hover {
 @media (max-width: 600px) {
     .level-question-form {
         max-width: 100%;
+    }
+}
+/* ===== QR Payment Screen ===== */
+
+.qr-payment-section {
+    text-align: center;
+}
+
+.qr-payment-wrapper {
+    max-width: 420px;
+    margin: 0 auto;
+}
+
+.qr-card {
+    background: radial-gradient(circle at top,
+                rgba(0,255,255,.18), rgba(10,10,15,.98));
+    border-radius: 24px;
+    padding: 1.6rem 1.4rem 1.8rem;
+    border: 1px solid rgba(148,163,184,.7);
+    box-shadow: 0 18px 40px rgba(15,23,42,.9);
+    text-align: left;
+}
+
+.qr-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.qr-badge {
+    padding: 0.25rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(15,23,42,.9);
+    border: 1px solid rgba(0,255,255,.6);
+    font-size: 0.75rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: var(--primary);
+}
+
+.qr-amount {
+    font-weight: 700;
+    color: #e5e7eb;
+    font-size: 0.95rem;
+}
+
+.qr-code {
+    position: relative;
+    width: 220px;
+    height: 220px;
+    margin: 0 auto 1rem;
+    background: rgba(15,23,42,1);
+    border-radius: 18px;
+    border: 1px solid rgba(148,163,184,.7);
+    overflow: hidden;
+}
+
+/* tiga kotak sudut kayak QR asli */
+.qr-corner {
+    position: absolute;
+    width: 52px;
+    height: 52px;
+    border: 3px solid rgba(229,231,235,1);
+    border-radius: 8px;
+}
+
+.qr-corner-1 { top: 10px; left: 10px; }
+.qr-corner-2 { top: 10px; right: 10px; }
+.qr-corner-3 { bottom: 10px; left: 10px; }
+
+.qr-pixels {
+    position: absolute;
+    inset: 18% 18%;
+    background-image:
+      radial-gradient(circle, rgba(229,231,235,0.9) 30%, transparent 32%);
+    background-size: 16px 16px;
+    opacity: 0.9;
+}
+
+/* garis scan animasi */
+.qr-scan-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg,
+        rgba(56,189,248,0),
+        rgba(56,189,248,1),
+        rgba(56,189,248,0));
+    box-shadow: 0 0 12px rgba(56,189,248,0.9);
+    animation: qrScan 2.2s linear infinite;
+}
+
+@keyframes qrScan {
+    0%   { top: 12px; opacity: 0; }
+    5%   { opacity: 1; }
+    50%  { top: calc(100% - 12px); opacity: 1; }
+    95%  { opacity: 1; }
+    100% { top: 12px; opacity: 0; }
+}
+
+.qr-instruction {
+    font-size: 0.85rem;
+    color: var(--gray);
+    margin-bottom: 0.75rem;
+}
+
+/* responsif */
+@media (max-width: 480px) {
+    .qr-code {
+        width: 190px;
+        height: 190px;
     }
 }
