@@ -1,119 +1,97 @@
 @extends('layouts.app')
 
-@section('title', 'Peta Stage & Level – QRIS Journey')
-
-@section('hero')
-    {{-- <section class="hero" style="height: 50vh;">
-        <div class="hero-content">
-            <h1>Petualangan QRIS</h1>
-            <p>
-                Jelajahi papan permainan, kumpulkan koin, lalu naik level untuk menaklukkan
-                semua tantangan QRIS.
-            </p>
-
-            <div class="hero-stats">
-                <div class="stat">
-                    <span class="stat-number">{{ $coins ?? 0 }}</span>
-                    <span class="stat-label">Koin Kamu</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-number">5</span>
-                    <span class="stat-label">Total Level</span>
-                </div>
-            </div>
-        </div>
-    </section> --}}
-@endsection
+@section('title', 'Papan Stage & Level – QRIS Journey')
 
 @section('content')
-    @php
-        // contoh progress (nanti bisa diganti dari database / session)
-        $currentLevel = $currentLevel ?? 1;   // level yang sedang aktif
-        $maxUnlocked  = $maxUnlocked  ?? 2;  // level tertinggi yang sudah kebuka
-
-        // deskripsi tiap level (sesuai PDF)
-        $levels = [
-            1 => [
-                'title' => 'Dasar QRIS',
-                'type'  => 'Pilihan ganda',
-                'points' => '100 / 50 poin',
-            ],
-            2 => [
-                'title' => 'Benar atau Salah',
-                'type'  => '3 pernyataan B/S',
-                'points' => '120 / 60 poin',
-            ],
-            3 => [
-                'title' => 'Urutan Langkah',
-                'type'  => 'Drag & drop QRIS',
-                'points' => '150 / 75 poin',
-            ],
-            4 => [
-                'title' => 'QR Asli vs Palsu',
-                'type'  => 'Identifikasi gambar',
-                'points' => '180 / 90 poin',
-            ],
-            5 => [
-                'title' => 'Studi Kasus QRIS',
-                'type'  => 'Pilih solusi terbaik',
-                'points' => '200 / 100 poin',
-            ],
-        ];
-    @endphp
-
     <section class="section">
         <h2 class="animate-on-scroll">Papan Petualangan QRIS</h2>
 
+        @php
+            // HARUS sama dengan LEVELS_PER_STAGE di GameController
+            $levelsPerStage = 3;
+
+            // maxUnlocked sekarang adalah index linear: 1,2,3,4,...
+            $stageUnlocked = intdiv($maxUnlocked - 1, $levelsPerStage) + 1;
+            $levelUnlocked = ($maxUnlocked - 1) % $levelsPerStage + 1;
+        @endphp
+
+        <p style="text-align:center; color: var(--gray); margin-bottom: 1.5rem;">
+            Koin kamu: <strong>{{ $coins }}</strong><br>
+        </p>
+
         <div class="board-wrapper">
-            {{-- papan ular-tangga --}}
+            {{-- papan level --}}
             <div class="game-board">
-                @foreach ($levels as $levelNumber => $info)
-                    @php
-                        $isUnlocked = $levelNumber <= $maxUnlocked;
-                        $isCurrent  = $levelNumber === $currentLevel;
-                    @endphp
+                @foreach ($stages as $stageNumber => $stageData)
+                    @foreach ($stageData['levels'] as $levelNumber => $info)
+                        @php
+                            // index linear level: 1..9 (kalau 3 stage × 3 level)
+                            $index     = ($stageNumber - 1) * $levelsPerStage + $levelNumber;
+                            $unlocked  = $index <= $maxUnlocked;
+                            $isCurrent = $index === $currentCode;
+                            $completed = in_array("{$stageNumber}-{$levelNumber}", $completedLevels, true);
 
-                    <button
-                        type="button"
-                        class="board-cell
-                            {{ $isUnlocked ? 'cell-unlocked' : 'cell-locked' }}
-                            {{ $isCurrent ? 'cell-current' : '' }}"
-                        @if($isUnlocked)
-                            onclick="window.location='{{ route('game.level.show', ['stage' => 1, 'level' => $levelNumber]) }}'"
-                        @endif
-                    >
-                        {{-- nomor petak --}}
-                        <span class="cell-number">{{ $levelNumber }}</span>
+                            $typeLabel = match ($info['type']) {
+                                'multiple_choice' => 'Pilihan ganda',
+                                'true_false'      => 'Benar / Salah',
+                                'order'           => 'Urutkan langkah',
+                                default           => ucfirst($info['type']),
+                            };
 
-                        {{-- token karakter jika ini level aktif --}}
-                        @if($isCurrent)
-                            <div class="player-token">
-                                <span class="player-face">😀</span>
-                            </div>
-                        @endif
+                            $points1 = $info['points'][1] ?? 0;
+                            $points2 = $info['points'][2] ?? 0;
+                        @endphp
 
-                        <span class="cell-title">{{ $info['title'] }}</span>
-                        <span class="cell-type">{{ $info['type'] }}</span>
-                        <span class="cell-points">{{ $info['points'] }}</span>
+                        <button
+                            type="button"
+                            class="board-cell
+                                {{ $unlocked ? 'cell-unlocked' : 'cell-locked' }}
+                                {{ $isCurrent ? 'cell-current' : '' }}"
+                            @if ($unlocked)
+                                onclick="window.location='{{ route('game.level.show', [
+                                    'stage' => $stageNumber,
+                                    'level' => $levelNumber,
+                                ]) }}'"
+                            @endif
+                        >
+                            {{-- kode level di pojok kanan atas --}}
+                            <span class="cell-number">{{ $stageNumber }}-{{ $levelNumber }}</span>
 
-                        @if(!$isUnlocked)
-                            <span class="cell-locked-label">Terkunci</span>
-                        @endif
-                    </button>
+                            {{-- token karakter di level aktif --}}
+                            @if ($isCurrent)
+                                <div class="player-token">
+                                    <span class="player-face">😀</span>
+                                </div>
+                            @endif
+
+                            <span class="cell-title">{{ $info['title'] }}</span>
+                            <span class="cell-type">{{ $typeLabel }}</span>
+                            <span class="cell-points">{{ $points1 }} / {{ $points2 }} poin</span>
+
+                            @if (! $unlocked)
+                                <span class="cell-locked-label">Terkunci</span>
+                            @elseif ($completed)
+                                <span class="cell-locked-label" style="color: var(--success);">
+                                    Selesai
+                                </span>
+                            @endif
+                        </button>
+                    @endforeach
                 @endforeach
 
-                {{-- garis jalur seperti ular-tangga (hanya dekorasi) --}}
+                {{-- dekorasi jalur di belakang kotak level --}}
                 <div class="board-path"></div>
             </div>
 
-            {{-- legenda / penjelasan singkat --}}
+            {{-- legenda --}}
             <div class="board-legend">
                 <h3>Cara Main</h3>
                 <ul>
                     <li>Ikon 😀 menunjukkan posisi level kamu sekarang.</li>
-                    <li>Petak berwarna terang = level sudah terbuka, bisa diklik.</li>
-                    <li>Petak abu = level terkunci, butuh koin / syarat tertentu.</li>
-                    <li>Poin level mengikuti tabel (poin percobaan 1 & 2) dari desain game.</li>
+                    <li>Petak berwarna terang = level sudah terbuka dan bisa diklik.</li>
+                    <li>Petak abu / garis putus-putus = level terkunci.</li>
+                    <li>Setiap level bisa dicoba beberapa kali, tetapi koin hanya bertambah saat pertama kali berhasil.</li>
+                    <li>Skor mengikuti kolom poin percobaan 1 & 2 di desain game QRIS Journey.</li>
                 </ul>
             </div>
         </div>
