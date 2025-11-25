@@ -1,53 +1,56 @@
-# ========== STAGE 1: FRONTEND (Vite build) ==========
+# ============================
+# 1) FRONTEND STAGE (VITE BUILD)
+# ============================
 FROM node:20-alpine AS frontend
 
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm install
+# Copy file yang dibutuhkan untuk npm install dulu
+COPY package*.json vite.config.* ./
+COPY resources ./resources
+COPY public ./public
 
-COPY . .
+RUN npm install
 RUN npm run build
 
-
-# ========== STAGE 2: PHP + LARAVEL ==========
+# ============================
+# 2) PHP / LARAVEL STAGE
+# ============================
 FROM php:8.2-cli-alpine AS app
 
-# Dependensi OS
+# Ekstensi PHP yang dibutuhkan Laravel + MySQL
 RUN apk add --no-cache \
     git \
     unzip \
     libpng-dev \
     libzip-dev \
-    sqlite \
     oniguruma-dev \
     bash \
- && docker-php-ext-install pdo pdo_mysql mbstring zip gd
+    mysql-client
 
-# Composer
+RUN docker-php-ext-install pdo pdo_mysql mbstring zip gd
+
+# Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 WORKDIR /var/www/html
 
-# Penting: copy semua dulu supaya artisan ada
-COPY . .
-
-# Install dependency PHP
+# Copy file composer dan install dependency
+COPY composer.json composer.lock ./
 RUN composer install \
     --no-dev \
     --no-interaction \
     --prefer-dist \
     --optimize-autoloader
 
-# Copy hasil build Vite dari stage frontend
+# Copy seluruh source code laravel
+COPY . .
+
+# Copy HASIL BUILD VITE ke public/build
 COPY --from=frontend /app/public/build ./public/build
 
-# (opsional) optimasi Laravel
-# RUN php artisan config:cache \
-#     && php artisan route:cache \
-#     && php artisan view:cache
+# Permission basic
+RUN chmod -R 775 storage bootstrap/cache
 
-# Port default Railway (sesuaikan kalau beda)
-EXPOSE 8000
-
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+# Default command: jalankan Laravel di port 8080 (untuk Railway)
+CMD php artisan serve --host=0.0.0.0 --port=${PORT:-8080}
