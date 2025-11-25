@@ -30,7 +30,7 @@ RUN apk add --no-cache \
     bash
 
 # Ekstensi PHP yang dibutuhkan Laravel
-RUN docker-php-ext-install pdo pdo_mysql pdo_sqlite mbstring zip gd
+RUN docker-php-ext-install pdo pdo_mysql mbstring zip gd
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
