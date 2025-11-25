@@ -1,24 +1,31 @@
-# ============================
-# 1) FRONTEND STAGE (VITE BUILD)
-# ============================
+# syntax=docker/dockerfile:1
+
+############################
+# 1) FRONTEND (VITE BUILD)
+############################
 FROM node:20-alpine AS frontend
 
 WORKDIR /app
 
-# Copy file yang dibutuhkan untuk npm install dulu
+# File yang dibutuhkan untuk npm install
 COPY package*.json vite.config.* ./
+
+RUN npm install
+
+# Copy source untuk build (Blade, JS, CSS, dll)
 COPY resources ./resources
 COPY public ./public
 
-RUN npm install
+# Build asset Vite -> public/build
 RUN npm run build
 
-# ============================
-# 2) PHP / LARAVEL STAGE
-# ============================
+
+############################
+# 2) PHP / LARAVEL APP
+############################
 FROM php:8.2-cli-alpine AS app
 
-# Ekstensi PHP yang dibutuhkan Laravel + MySQL
+# Paket sistem yang dibutuhkan Laravel + MySQL
 RUN apk add --no-cache \
     git \
     unzip \
@@ -28,29 +35,30 @@ RUN apk add --no-cache \
     bash \
     mysql-client
 
+# Ekstensi PHP yang dibutuhkan Laravel
 RUN docker-php-ext-install pdo pdo_mysql mbstring zip gd
 
-# Install Composer
+# Copy binary composer dari image resmi
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
+# Root aplikasi Laravel
 WORKDIR /var/www/html
 
-# Copy file composer dan install dependency
-COPY composer.json composer.lock ./
+# ⬅ PENTING: copy SELURUH project (supaya file artisan, route, view, dll ada)
+COPY . .
+
+# Copy hasil build Vite dari stage frontend
+COPY --from=frontend /app/public/build ./public/build
+
+# Install dependency PHP untuk production
 RUN composer install \
     --no-dev \
     --no-interaction \
     --prefer-dist \
     --optimize-autoloader
 
-# Copy seluruh source code laravel
-COPY . .
+# Port yang akan dipakai di Railway (Networking → Target port = 8080)
+EXPOSE 8080
 
-# Copy HASIL BUILD VITE ke public/build
-COPY --from=frontend /app/public/build ./public/build
-
-# Permission basic
-RUN chmod -R 775 storage bootstrap/cache
-
-# Default command: jalankan Laravel di port 8080 (untuk Railway)
-CMD php artisan serve --host=0.0.0.0 --port=${PORT:-8080}
+# Jalankan Laravel
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8080"]
